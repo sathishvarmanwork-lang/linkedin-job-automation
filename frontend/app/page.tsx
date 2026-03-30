@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type ViewState = "form" | "loading" | "results" | "skills-loading" | "skills-results";
+type ViewState = "form" | "loading" | "results" | "processing" | "process-results";
 
 interface EvaluationResult {
   result: string;
@@ -10,12 +10,21 @@ interface EvaluationResult {
   decision: string;
 }
 
+interface ProcessResult {
+  skillsGap: string;
+  cvDocUrl: string;
+  pdfBase64: string;
+  pdfFilename: string;
+  companyName: string;
+  jobTitle: string;
+}
+
 export default function Home() {
   const [view, setView] = useState<ViewState>("form");
   const [jobDescription, setJobDescription] = useState("");
   const [error, setError] = useState("");
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
-  const [skillsGap, setSkillsGap] = useState<string | null>(null);
+  const [processResult, setProcessResult] = useState<ProcessResult | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,14 +62,31 @@ export default function Home() {
   function handleBack() {
     setView("form");
     setEvaluation(null);
-    setSkillsGap(null);
+    setProcessResult(null);
   }
 
-  async function handleSkillsGap() {
-    setView("skills-loading");
+  function handleDownloadPdf() {
+    if (!processResult?.pdfBase64) return;
+    const byteCharacters = atob(processResult.pdfBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = processResult.pdfFilename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleProcess() {
+    setView("processing");
 
     try {
-      const res = await fetch("/api/skills-gap", {
+      const res = await fetch("/api/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobDescription: jobDescription.trim() }),
@@ -69,11 +95,11 @@ export default function Home() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Skills gap analysis failed");
+        throw new Error(data.error || "Processing failed");
       }
 
-      setSkillsGap(data.result);
-      setView("skills-results");
+      setProcessResult(data);
+      setView("process-results");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong";
       setError(message);
@@ -81,22 +107,44 @@ export default function Home() {
     }
   }
 
-  if (view === "skills-results" && skillsGap) {
+  if (view === "process-results" && processResult) {
     return (
       <div className="flex flex-1 justify-center py-10">
         <div className="w-full max-w-2xl px-6">
-          <h2 className="mb-6 text-xl font-semibold tracking-tight">
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950">
+            <p className="text-sm font-medium text-green-800 dark:text-green-200">
+              CV created: {processResult.companyName} - {processResult.jobTitle}
+            </p>
+            <div className="mt-2 flex gap-3">
+              <a
+                href={processResult.cvDocUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-green-700 underline hover:text-green-900 dark:text-green-300 dark:hover:text-green-100"
+              >
+                Open CV in Google Docs
+              </a>
+              <button
+                onClick={handleDownloadPdf}
+                className="text-sm font-medium text-green-700 underline hover:text-green-900 dark:text-green-300 dark:hover:text-green-100"
+              >
+                Download PDF
+              </button>
+            </div>
+          </div>
+
+          <h2 className="mb-4 text-xl font-semibold tracking-tight">
             Skills Gap Analysis
           </h2>
 
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-700 dark:bg-zinc-900">
             <pre className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
-              {skillsGap}
+              {processResult.skillsGap}
             </pre>
           </div>
 
           <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
-            Logged to Upskilling Tracker
+            Skills gap logged to Upskilling Tracker
           </p>
 
           <div className="mt-6">
@@ -112,13 +160,13 @@ export default function Home() {
     );
   }
 
-  if (view === "skills-loading") {
+  if (view === "processing") {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="w-full max-w-2xl px-6 text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-600 dark:border-t-zinc-100" />
           <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
-            Analyzing skills gap against your database...
+            Analyzing skills gap and generating CV...
           </p>
         </div>
       </div>
@@ -185,7 +233,7 @@ export default function Home() {
               Back
             </button>
             <button
-              onClick={handleSkillsGap}
+              onClick={handleProcess}
               className="flex-1 rounded-md bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
             >
               Write CV & Log Skill Gap
