@@ -5,7 +5,8 @@ module.exports = {
   googleDocs: {
     skillsDatabase: '1ZcgSoi12klLSZqxURX346TwKGSDzCRnYbDGSGhfuGMQ',
     upskillingTracker: '1pnaX4F2lLII342ukQVO2s62v1cRxFmLyyea2L6ktR18',
-    cvTemplate: '1L0FyrhJgZaanPmwvdYQhu-Vbvp1YcMN0x3I2P34a-Mg'
+    cvTemplate: '1L0FyrhJgZaanPmwvdYQhu-Vbvp1YcMN0x3I2P34a-Mg',
+    evaluationPrompt: '1SxvYoBBaJTN-87w87rRb3bsC2JbkEI48G4LJ3O3hB3w'
   },
 
   // Google Drive Folder IDs
