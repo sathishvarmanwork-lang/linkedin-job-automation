@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type ViewState = "form" | "loading" | "results";
+type ViewState = "form" | "loading" | "results" | "skills-loading" | "skills-results";
 
 interface EvaluationResult {
   result: string;
@@ -15,6 +15,7 @@ export default function Home() {
   const [jobDescription, setJobDescription] = useState("");
   const [error, setError] = useState("");
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
+  const [skillsGap, setSkillsGap] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,6 +53,76 @@ export default function Home() {
   function handleBack() {
     setView("form");
     setEvaluation(null);
+    setSkillsGap(null);
+  }
+
+  async function handleSkillsGap() {
+    setView("skills-loading");
+
+    try {
+      const res = await fetch("/api/skills-gap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobDescription: jobDescription.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Skills gap analysis failed");
+      }
+
+      setSkillsGap(data.result);
+      setView("skills-results");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Something went wrong";
+      setError(message);
+      setView("results");
+    }
+  }
+
+  if (view === "skills-results" && skillsGap) {
+    return (
+      <div className="flex flex-1 justify-center py-10">
+        <div className="w-full max-w-2xl px-6">
+          <h2 className="mb-6 text-xl font-semibold tracking-tight">
+            Skills Gap Analysis
+          </h2>
+
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-700 dark:bg-zinc-900">
+            <pre className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
+              {skillsGap}
+            </pre>
+          </div>
+
+          <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
+            Logged to Upskilling Tracker
+          </p>
+
+          <div className="mt-6">
+            <button
+              onClick={() => setView("results")}
+              className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "skills-loading") {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="w-full max-w-2xl px-6 text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-600 dark:border-t-zinc-100" />
+          <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
+            Analyzing skills gap against your database...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (view === "loading") {
@@ -114,10 +185,7 @@ export default function Home() {
               Back
             </button>
             <button
-              onClick={() => {
-                // TODO: Wire to CV generation + skill gap logging
-                console.log("Write CV & Log Skill Gap clicked");
-              }}
+              onClick={handleSkillsGap}
               className="flex-1 rounded-md bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
             >
               Write CV & Log Skill Gap
