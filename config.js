@@ -17,9 +17,9 @@ module.exports = {
 
   // ClickUp Configuration
   clickup: {
-    listId: '901410469638',
-    spaceName: 'PM Coaching',
-    listName: 'Dheeraj'
+    listId: '901414987678',
+    spaceName: 'Sathish',
+    listName: 'Job Applications'
   },
 
   // LLM Configuration

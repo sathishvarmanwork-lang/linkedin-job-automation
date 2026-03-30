@@ -17,11 +17,13 @@ interface ProcessResult {
   pdfFilename: string;
   companyName: string;
   jobTitle: string;
+  clickUpTaskUrl: string | null;
 }
 
 export default function Home() {
   const [view, setView] = useState<ViewState>("form");
   const [jobDescription, setJobDescription] = useState("");
+  const [jobUrl, setJobUrl] = useState("");
   const [error, setError] = useState("");
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [processResult, setProcessResult] = useState<ProcessResult | null>(null);
@@ -89,7 +91,7 @@ export default function Home() {
       const res = await fetch("/api/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobDescription: jobDescription.trim() }),
+        body: JSON.stringify({ jobDescription: jobDescription.trim(), jobUrl: jobUrl.trim() }),
       });
 
       const data = await res.json();
@@ -143,16 +145,44 @@ export default function Home() {
             </pre>
           </div>
 
-          <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
-            Skills gap logged to Upskilling Tracker
-          </p>
+          <div className="mt-3 flex flex-col gap-1 text-xs text-zinc-400 dark:text-zinc-500">
+            <p>Skills gap logged to Upskilling Tracker</p>
+            {processResult.clickUpTaskUrl ? (
+              <p>
+                ClickUp task created:{" "}
+                <a
+                  href={processResult.clickUpTaskUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-zinc-600 dark:hover:text-zinc-300"
+                >
+                  View task
+                </a>
+              </p>
+            ) : (
+              <p>ClickUp task: skipped (no job URL provided)</p>
+            )}
+          </div>
 
-          <div className="mt-6">
+          <div className="mt-6 flex gap-3">
             <button
               onClick={() => setView("results")}
-              className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
+              className="flex-1 rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
             >
               Back
+            </button>
+            <button
+              onClick={() => {
+                setView("form");
+                setJobDescription("");
+                setJobUrl("");
+                setError("");
+                setEvaluation(null);
+                setProcessResult(null);
+              }}
+              className="flex-1 rounded-md bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            >
+              Home
             </button>
           </div>
         </div>
@@ -252,6 +282,20 @@ export default function Home() {
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="jobUrl" className="block text-sm font-medium mb-1.5">
+              Job URL <span className="text-zinc-400 font-normal">(optional)</span>
+            </label>
+            <input
+              id="jobUrl"
+              type="url"
+              placeholder="https://linkedin.com/jobs/view/..."
+              value={jobUrl}
+              onChange={(e) => setJobUrl(e.target.value)}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:ring-2 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-100"
+            />
+          </div>
+
           <div>
             <label htmlFor="jobDescription" className="block text-sm font-medium mb-1.5">
               Job Description

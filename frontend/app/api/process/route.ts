@@ -8,6 +8,7 @@ const CV_TEMPLATE_DOC_ID = "1v72_OeNOWDqpatrBf-UtnewocbQVtFO7aFN-l39ptOo";
 const UPSKILLING_TRACKER_DOC_ID = "1pnaX4F2lLII342ukQVO2s62v1cRxFmLyyea2L6ktR18";
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbx7PalaIcyk5QRNIe9gnH-hvZCwICUS_J_ikfB5K4so9jcUXiXN-3nhRVdhMZpNtOriWg/exec";
+const CLICKUP_LIST_ID = "901414987678";
 const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 8192;
 
@@ -100,9 +101,34 @@ function extractCVContent(cvOutput: string): string {
   return match ? match[1].trim() : cvOutput;
 }
 
+async function createClickUpTask(
+  taskName: string,
+  jobUrl: string
+): Promise<{ taskId: string; taskUrl: string }> {
+  const res = await fetch(
+    `https://api.clickup.com/api/v2/list/${CLICKUP_LIST_ID}/task`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: process.env.CLICKUP_API_TOKEN!,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: taskName, description: jobUrl }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`ClickUp error: ${err}`);
+  }
+
+  const data = await res.json();
+  return { taskId: data.id, taskUrl: data.url };
+}
+
 export async function POST(request: Request) {
   try {
-    const { jobDescription } = await request.json();
+    const { jobDescription, jobUrl } = await request.json();
 
     if (
       !jobDescription ||
@@ -160,15 +186,23 @@ export async function POST(request: Request) {
     const { companyName, jobTitle } = parseCompanyAndTitle(cvRawResult);
     const cvContent = extractCVContent(cvRawResult);
 
-    // Step 3: Log skills gap + create CV doc in parallel
+    // Step 3: Log skills gap + create CV doc + create ClickUp task in parallel
     const docTitle = `Sathish - ${companyName} ${jobTitle}`;
+    const clickUpTaskName = `${companyName} ${jobTitle}`;
 
-    const [, cvDoc] = await Promise.all([
+    const [, cvDoc, clickUpResult] = await Promise.all([
       appendToDocument(
         UPSKILLING_TRACKER_DOC_ID,
         `--- ${new Date().toISOString().split("T")[0]} ---\n${companyName} - ${jobTitle}\n\n${skillsGapResult}`
       ),
       createCVGoogleDoc(docTitle, cvContent),
+      jobUrl
+        ? createClickUpTask(clickUpTaskName, jobUrl).catch((err: unknown) => ({
+            taskId: null,
+            taskUrl: null,
+            error: err instanceof Error ? err.message : "ClickUp failed",
+          }))
+        : Promise.resolve({ taskId: null, taskUrl: null }),
     ]);
 
     return Response.json({
@@ -178,6 +212,7 @@ export async function POST(request: Request) {
       pdfFilename: cvDoc.pdfFilename,
       companyName,
       jobTitle,
+      clickUpTaskUrl: clickUpResult.taskUrl,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
