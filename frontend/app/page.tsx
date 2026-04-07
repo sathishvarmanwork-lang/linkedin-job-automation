@@ -43,7 +43,7 @@ export default function Home() {
       const res = await fetch("/api/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobDescription: jobDescription.trim() }),
+        body: JSON.stringify({ jobDescription: jobDescription.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "") }),
       });
 
       const data = await res.json();
